@@ -8,8 +8,8 @@ Exploring Polar H10 ECG functionality
 
 
 ## References
-[https://github.com/polarofficial/polar-ble-sdk/blob/master/technical_documentation/Polar_Measurement_Data_Specification.pdf]()
+[https://github.com/polarofficial/polar-ble-sdk/blob/master/technical_documentation/Polar_Measurement_Data_Specification.pdf](https://github.com/polarofficial/polar-ble-sdk/blob/master/technical_documentation/Polar_Measurement_Data_Specification.pdf)
 
-[https://github.com/polarofficial/polar-ble-sdk]()
+[https://github.com/polarofficial/polar-ble-sdk](https://github.com/polarofficial/polar-ble-sdk)
 
-[https://nob.ro/post/polar_h10_ubuntu/]()
+[https://nob.ro/post/polar_h10_ubuntu/](https://nob.ro/post/polar_h10_ubuntu/)
