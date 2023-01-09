@@ -25,7 +25,8 @@ Piping the Bleak examples and my findings together
 ![ECG Plot](./doc/ecg2_plot.png)
 
 ### Converting the data
-The 3 byte data format is awful. But 14 bits fit into the first two bytes and therefore interpret the first two bytes as signed 16 bit integer and use some integrasted conversion functions to convert.
+The 3 byte data format is awful. Looking at the data shows that the values appear to be sign extended to 24 bits. 14 bits fit into the first two bytes and therefore I can interpret the first two bytes as signed 16 bit integer and use an integrated conversion function to convert.
+
 ```python
 def pmd_data_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
     if data[0] == 0x00: # 0x00 = ECG
