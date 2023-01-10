@@ -9,9 +9,16 @@ import matplotlib.pyplot as plt
 from numpy_ringbuffer import RingBuffer
 import peakutils
 
+from dataclasses import dataclass
+
 address = "ec:ea:02:85:d9:7a"
 PMD_CONTROL = "fb005c81-02e7-f387-1cad-8acd2d8df0c8"
 PMD_DATA = "fb005c82-02e7-f387-1cad-8acd2d8df0c8"
+
+@dataclass
+class xt_data():
+    time: None
+    value: None
 
 display_time_s = 10
 sampleRate = 130
@@ -20,17 +27,19 @@ rb_capacity = int(display_time_s * 1e9 / deltaT_ns)
 
 print(f"Ring buffer capacity: {rb_capacity}")
 
-dt = RingBuffer(capacity=rb_capacity, dtype=np.uint64)
-dy = RingBuffer(capacity=rb_capacity, dtype=np.int16)
+ecg_data = xt_data(
+    time = RingBuffer(capacity=rb_capacity, dtype=np.uint64),
+    value = RingBuffer(capacity=rb_capacity, dtype=np.int16))
 
-ot=np.array(1,dtype=np.uint64)
-oy=np.array(1,dtype=np.int16)
+peak_data = xt_data(
+    time = np.array(1,dtype=np.uint64),
+    value = np.array(1,dtype=np.int16))
 
 plt.ion()
-ph, = plt.plot(dt, dy)
-ph2, = plt.plot(ot, oy, marker="o", ls="", ms=4)    # Peak markers
+ecg_data_plot_handle, = plt.plot(ecg_data.time, ecg_data.value)
+peak_data_mplot_handle, = plt.plot(peak_data.time, peak_data.value, marker="o", ls="", ms=4)    # Peak markers
 
-pa = []
+plot_annotations = []
 
 def pmd_control_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
     hex = [f"{i:02x}" for i in data]
@@ -67,7 +76,7 @@ def pmd_data_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
     
     # DATA: ['00', '3a', 'd2', '30', '03', 'c2', '4f', '52', '08', '00', '8b', 'ff', 'ff', '99', 'ff', 'ff', 'ae', 'ff', 'ff', 'a9', 'ff', 'ff', 'a7', 'ff', 'ff', 'c0', 'ff', 'ff', 'bb', 'ff', 'ff', '82', 'ff', 'ff', '41', 'ff', 'ff', '34', 'ff', 'ff', '5b', 'ff', 'ff', '7b', 'ff', 'ff', '7d', 'ff', 'ff', '8b', 'ff', 'ff', '9d', 'ff', 'ff', 'ab', 'ff', 'ff', 'c0', 'ff', 'ff', 'd2', 'ff', 'ff', 'd9', 'ff', 'ff', 'e3', 'ff', 'ff', 'e9', 'ff', 'ff', 'f3', 'ff', 'ff', '0b', '00', '00', '19', '00', '00', '14', '00', '00', '1b', '00', '00', '29', '00', '00', '3b', '00', '00', '5c', '00', '00', '77', '00', '00', '85', '00', '00', '8c', '00', '00', '8e', '00', '00', '8a', '00', '00', '73', '00', '00', '4e', '00', '00', '32', '00', '00', '2b', '00', '00', '29', '00', '00', '2b', '00', '00', '3b', '00', '00', '47', '00', '00', '47', '00', '00', '47', '00', '00', '50', '00', '00', '63', '00', '00', '73', '00', '00', '77', '00', '00', '77', '00', '00', '75', '00', '00', '7c', '00', '00', '8a', '00', '00', '95', '00', '00', '95', '00', '00', '8e', '00', '00', '83', '00', '00', '83', '00', '00', '8c', '00', '00', '91', '00', '00', '91', '00', '00', '8a', '00', '00', '7e', '00', '00', '80', '00', '00', '8e', '00', '00', '9a', '00', '00', '9c', '00', '00', '93', '00', '00', '83', '00', '00', '7a', '00', '00', '85', '00', '00', '91', '00', '00', '8c', '00', '00', '6c', '00', '00']
     #   0x00 = ECG
-    #   0x3a, 0xd2, 0x30, 0x03, 0xc2, 0x4f, 0x52, 0x08 = timestamp in ns
+    #   0x3a, 0xd2, 0x30, 0x03, 0xc2, 0x4f, 0x52, 0x08 = time in ns
     #   0x00 = ECG Frame type
     #   0x8b, 0xff, 0xff, sample 0, negative
     #   0x99, 0xff, 0xff,
@@ -98,48 +107,48 @@ def pmd_data_handler(characteristic: BleakGATTCharacteristic, data: bytearray):
     #   0x29, 0x00, 0x00,
     
     if data[0] == 0x00: # 0x00 = ECG
-        timestamp = int.from_bytes(data[1:][0:7], byteorder='little', signed=False)
+        time = int.from_bytes(data[1:][0:7], byteorder='little', signed=False)
         i = 9
         sample = 0
         deltaT = 1e9/130.0
-        # print(f"{timestamp} {deltaT}")
+        # print(f"{time} {deltaT}")
         frame_type = data[i]
         if frame_type == 0: # 0 = ECG Data
             i += 1
             while len(data[i:][0:3]) == 3:
-                dt.append(timestamp + sample * deltaT)
-                dy.append(int.from_bytes(data[i:][0:2], byteorder='little', signed=True))
+                ecg_data.time.append(time + sample * deltaT)
+                ecg_data.value.append(int.from_bytes(data[i:][0:2], byteorder='little', signed=True))
                 i += 3
                 sample += 1
         
         # update line graph data
-        dya = np.array(dy)
-        dta = np.array(dt)
-        ph.set_data(dta, dya)
+        value = np.array(ecg_data.value)
+        time = np.array(ecg_data.time)
+        ecg_data_plot_handle.set_data(time, value)
 
         # find peaks
-        peaks = peakutils.indexes(dya, thres=0.75/max(dya), min_dist=100)
+        peaks = peakutils.indexes(value, thres=0.75/max(value), min_dist=100)
 
         # mark peaks in graph
-        ph2.set_data(dta[peaks], dya[peaks])
+        peak_data_mplot_handle.set_data(time[peaks], value[peaks])
 
         # remove annotations
-        for i, a in enumerate(pa):
+        for i, a in enumerate(plot_annotations):
             a.remove()
-        pa[:] = []
+        plot_annotations[:] = []
 
         # Calculate HR from peaks
         print(f"# peaks: {len(peaks)}")
         last_i = 0
         for i in range(1, len(peaks)):
             # get interval and calculate HR
-            interval = dta[peaks[i]] - dta[peaks[last_i]]
+            interval = time[peaks[i]] - time[peaks[last_i]]
             HR = 60.0*1.0e9/interval
             print(f"Interval: {interval/1.0e6:.1f} ms, HR: {HR:.1f} 1/min")
 
             # Annotate
-            a = plt.annotate(f"{HR:.0f}", xy=(dta[peaks[last_i]] + interval/2, max(dya[peaks[i]], dya[peaks[i]])), ha='center')
-            pa.append(a)
+            a = plt.annotate(f"{HR:.0f}", xy=(time[peaks[last_i]] + interval/2, max(value[peaks[i]], value[peaks[i]])), ha='center')
+            plot_annotations.append(a)
 
             # Next
             last_i = i
