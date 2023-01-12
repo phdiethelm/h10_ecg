@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import contextvars
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
@@ -35,7 +36,7 @@ with open(args.filename, mode="wb") as f:
     deltaT_ns = 1e9 / sampleRate
     rb_capacity = int(display_time_s * 1e9 / deltaT_ns)
 
-    close_event = asyncio.Event()
+    close_event_var = contextvars.ContextVar('close_event')
 
     print(f"Ring buffer capacity: {rb_capacity}")
 
@@ -52,6 +53,7 @@ with open(args.filename, mode="wb") as f:
     peak_data_plot_handle, = plt.plot(peak_data.time, peak_data.value, marker="o", ls="", ms=4)    # Peak markers
 
     def on_close(event):
+        close_event = close_event_var.get()
         close_event.set()
         print('Closed Figure')
 
@@ -181,6 +183,9 @@ with open(args.filename, mode="wb") as f:
 
     async def main():
         async with BleakClient(args.address) as client:
+            close_event = asyncio.Event()
+            close_event_var.set(close_event)
+
             print(f"Connected: {client.is_connected}")
             
             # Register Notifications
